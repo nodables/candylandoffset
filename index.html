@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jerk Dat Dih — Tension Management Clicker</title>
+<style>
+  :root{
+    --bg1:#1a0b2e; --bg2:#4a1249; --pink:#ff5fa2; --pink2:#ff2e7e;
+    --juice:#ffd23f; --danger:#ff2e2e; --panel:#221335ee; --line:#ffffff22;
+  }
+  *{box-sizing:border-box; user-select:none; -webkit-user-select:none;}
+  body{margin:0; font-family:'Segoe UI',system-ui,Arial,sans-serif; background:radial-gradient(1200px 800px at 50% 30%, var(--bg2), var(--bg1) 70%); color:#fff; overflow:hidden; height:100vh;}
+  #app{display:flex; height:100vh;}
+  /* LEFT : 3D STAGE */
+  #stage-wrap{flex:1; position:relative; display:flex; flex-direction:column; min-width:0;}
+  #topbar{display:flex; gap:12px; align-items:center; padding:10px 16px; background:#00000055; border-bottom:1px solid var(--line); z-index:5;}
+  #topbar h1{font-size:20px; margin:0; letter-spacing:1px; font-style:italic; text-shadow:0 2px 0 #000;}
+  #topbar h1 span{color:var(--pink);}
+  .stat{background:#ffffff14; border:1px solid var(--line); border-radius:10px; padding:4px 10px; font-size:14px; white-space:nowrap;}
+  .stat b{color:var(--juice);}
+  #stage{flex:1; position:relative; overflow:hidden; cursor:crosshair;}
+  #c{position:absolute; inset:0; width:100%; height:100%; display:block;}
+  #vignette{position:absolute; inset:0; pointer-events:none; opacity:0; background:radial-gradient(ellipse at center, transparent 45%, rgba(255,0,60,.55) 100%); transition:opacity .15s;}
+  #flash{position:absolute; inset:0; pointer-events:none; opacity:0; background:#fff;}
+  /* tension meter right side of stage */
+  #meter-wrap{position:absolute; right:18px; top:16px; bottom:16px; width:54px; background:#00000088; border:2px solid #ffffff33; border-radius:16px; overflow:hidden; display:flex; flex-direction:column-reverse; z-index:4;}
+  #meter-fill{width:100%; height:0%; background:linear-gradient(to top,#39ff6a,#ffe93f 55%,#ff7a1a 78%,#ff2222 95%); transition:height .06s linear;}
+  #meter-label{position:absolute; right:10px; top:50%; transform:translateY(-50%) rotate(90deg); transform-origin:center; font-weight:900; letter-spacing:3px; font-size:12px; opacity:.7; pointer-events:none;}
+  #tension-num{position:absolute; right:82px; top:14px; font-size:44px; font-weight:900; text-shadow:0 3px 0 #000, 0 0 18px var(--pink2); z-index:4;}
+  #tension-sub{position:absolute; right:82px; top:64px; font-size:13px; opacity:.85; z-index:4; text-align:right;}
+  #rhythm{position:absolute; left:16px; top:14px; z-index:4; background:#00000077; border:1px solid var(--line); padding:8px 12px; border-radius:12px; font-size:13px;}
+  #rhythm b{color:#7dffff;}
+  #hint{position:absolute; left:50%; bottom:14px; transform:translateX(-50%); background:#000000aa; border:1px solid var(--line); padding:8px 16px; border-radius:20px; font-size:14px; z-index:4; pointer-events:none; text-align:center;}
+  #stroke-ring{position:absolute; width:70px; height:70px; border:3px solid #fff; border-radius:50%; pointer-events:none; transform:translate(-50%,-50%); display:none; z-index:5; box-shadow:0 0 18px var(--pink);}
+  /* RIGHT : SHOP */
+  #shop{width:340px; background:var(--panel); border-left:1px solid var(--line); display:flex; flex-direction:column; z-index:6;}
+  #shop h2{margin:0; padding:12px 14px 6px; font-size:16px;}
+  #tabs{display:flex; gap:6px; padding:0 14px 8px;}
+  #tabs button{flex:1; padding:7px; border-radius:9px; border:1px solid var(--line); background:#ffffff10; color:#fff; cursor:pointer; font-weight:700; font-size:12px;}
+  #tabs button.active{background:var(--pink2); border-color:#fff3;}
+  #shop-list{flex:1; overflow-y:auto; padding:0 14px 14px; display:flex; flex-direction:column; gap:8px;}
+  .card{background:#ffffff0d; border:1px solid var(--line); border-radius:12px; padding:10px;}
+  .card h3{margin:0 0 2px; font-size:14px;}
+  .card p{margin:4px 0; font-size:12px; opacity:.85;}
+  .card .row{display:flex; justify-content:space-between; align-items:center; margin-top:6px;}
+  .card button{background:var(--juice); border:none; border-radius:8px; padding:7px 10px; font-weight:800; cursor:pointer;}
+  .card button:disabled{opacity:.35; cursor:not-allowed;}
+  .card.ability button{background:#7dffff;}
+  .lvl{font-size:12px; color:var(--juice); font-weight:800;}
+  #abilities-bar{display:flex; gap:8px; padding:10px 14px; border-top:1px solid var(--line);}
+  #abilities-bar button{flex:1; padding:10px 4px; border-radius:10px; border:1px solid var(--line); background:#ffffff14; color:#fff; font-weight:800; font-size:12px; cursor:pointer;}
+  #abilities-bar button.cool{opacity:.4;}
+  /* overlays */
+  .overlay{position:absolute; inset:0; background:#0a0518ee; display:flex; align-items:center; justify-content:center; z-index:20;}
+  .overlay.hidden{display:none;}
+  .modal{max-width:560px; width:92%; background:#231344; border:2px solid var(--pink); border-radius:18px; padding:26px; text-align:center; box-shadow:0 0 60px #ff2e7e66;}
+  .modal h1{margin:0 0 8px; font-style:italic;}
+  .modal h1 span{color:var(--pink);}
+  .modal p{font-size:14px; line-height:1.5; opacity:.9;}
+  .bigbtn{background:linear-gradient(180deg,var(--pink),var(--pink2)); border:none; color:#fff; font-size:18px; font-weight:900; padding:14px 26px; border-radius:14px; cursor:pointer; margin-top:12px; box-shadow:0 4px 0 #a3134a;}
+  .bigbtn:active{transform:translateY(2px); box-shadow:none;}
+  .ghostbtn{background:transparent; border:1px solid var(--line); color:#fff; padding:10px 18px; border-radius:12px; cursor:pointer; margin-top:8px;}
+  kbd{background:#000; border:1px solid #555; border-radius:5px; padding:1px 6px; font-size:12px;}
+  #overload-stats{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:14px 0; text-align:left;}
+  #overload-stats div{background:#ffffff10; border-radius:10px; padding:8px 10px; font-size:13px;}
+  @media (max-width:900px){ #shop{width:290px;} #tension-num{font-size:32px;} }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <div id="stage-wrap">
+    <div id="topbar">
+      <h1>JERK DAT <span>DIH</span></h1>
+      <div class="stat">🧃 Juice: <b id="ui-juice">0</b></div>
+      <div class="stat">⭐ Score: <b id="ui-score">0</b></div>
+      <div class="stat">⏱️ <b id="ui-time">0.0s</b></div>
+      <div class="stat">🏆 Best: <b id="ui-best">0</b></div>
+      <div class="stat">✨ Prestige: <b id="ui-prestige">0</b></div>
+      <button id="mute" class="ghostbtn" style="margin:0;padding:4px 10px;">🔊</button>
+    </div>
+    <div id="stage">
+      <canvas id="c"></canvas>
+      <div id="vignette"></div><div id="flash"></div>
+      <div id="tension-num">0%</div>
+      <div id="tension-sub">TENSION<br><span id="ui-zone" style="font-weight:900">CHILL</span></div>
+      <div id="meter-wrap"><div id="meter-fill"></div><div id="meter-label">TENSION</div></div>
+      <div id="rhythm">🎵 Rhythm <b id="ui-rhythm">x1.00</b><br>💨 Speed <b id="ui-speed">0</b><br><span id="ui-press">🤚 hover = soft · hold = HARD</span></div>
+      <div id="hint">👆 DRAG UP &amp; DOWN over the pole to stroke · stay near 100% without hitting it!</div>
+      <div id="stroke-ring"></div>
+
+      <div id="start-overlay" class="overlay">
+        <div class="modal">
+          <h1>JERK DAT <span>DIH</span></h1>
+          <p><b>Incremental tension-management clicker.</b><br>
+          Stroke the pole (drag up/down over the cylinder). Speed + pressure + rhythm = tension gain.<br>
+          Tension always cools down. Points (<b>Juice 🧃</b>) flow faster the hotter you stay.<br>
+          Hit <b>100%</b> = OVERLOAD, run ends. Edge as close as you dare!</p>
+          <p>Controls: <b>mouse / touch drag</b> over pole · <kbd>Hold click</kbd> = hard pressure · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> = abilities · Spend Juice in shop → prestige for permanent bonus.</p>
+          <button class="bigbtn" id="btn-start">START STROKING 😤</button><br>
+          <button class="ghostbtn" id="btn-reset-save">wipe save</button>
+        </div>
+      </div>
+
+      <div id="over-overlay" class="overlay hidden">
+        <div class="modal" style="border-color:var(--danger)">
+          <h1>💥 OVERLOAD! 💥</h1>
+          <p>You pushed it past 100%. The Dih needs a minute...</p>
+          <div id="overload-stats"></div>
+          <button class="bigbtn" id="btn-again">GO AGAIN 🌀</button><br>
+          <button class="ghostbtn" id="btn-prestige2">prestige (if eligible)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="shop">
+    <h2>🛒 Upgrades <span style="opacity:.6;font-weight:400;font-size:12px">— Cookie-clicker style, saved</span></h2>
+    <div id="tabs">
+      <button data-tab="all" class="active">All</button>
+      <button data-tab="control">Control</button>
+      <button data-tab="tech">Strokes</button>
+      <button data-tab="skin">Skins</button>
+    </div>
+    <div id="shop-list"></div>
+    <div id="abilities-bar">
+      <button id="ab1">🧊 Cold Shower<br><span>1</span></button>
+      <button id="ab2">❄️ Ice Grip<br><span>2</span></button>
+      <button id="ab3">🌬️ Deep Breath<br><span>3</span></button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ============ SAVE / STATE ============ */
+const SAVE_KEY='jerk_dat_dih_v1';
+let save = { juice:0, lifetime:0, best:0, prestige:0, up:{lube:0,grip:0,shower:0,ice:0,breath:0,dbl:0,twist:0,edge:0}, skin:'classic' };
+try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY)); if(s) save={...save,...s}; }catch(e){}
+function persist(){ localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }
+
+const S = {
+  tension:0, runTime:0, alive:false, started:false,
+  juiceRun:0, score:0,
+  speedNorm:0, rhythmMult:1, combo:0, lastFlip:0, lastDir:0,
+  overPole:false, pressing:false, mouseX:0, mouseY:0,
+  smoothT:0, jitter:0,
+  cd:{shower:0, ice:0, breath:0}, buff:{iceUntil:0, breathUntil:0},
+  maxT:0, strokeDist:0,
+};
+
+const SKINS = {
+  classic:{name:'Classic Pink', pole:0xff5fa2, ball:0xff8fbe, cost:0},
+  gold:{name:'Golden Dih', pole:0xffc93f, ball:0xffe27d, cost:1500},
+  ice:{name:'Ice Dih', pole:0x6ad7ff, ball:0xbdf1ff, cost:2500},
+  zombie:{name:'Zombie Dih', pole:0x7dff5f, ball:0x3fae2e, cost:4000},
+  shadow:{name:'Shadow Dih', pole:0x5a2bff, ball:0x1a1a1a, cost:8000},
+};
+
+/* ============ THREE SCENE ============ */
+const canvas=document.getElementById('c'), stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+const scene=new THREE.Scene();
+const cam=new THREE.PerspectiveCamera(38,1,0.1,100); cam.position.set(0,1.6,7.2); cam.lookAt(0,0.6,0);
+scene.add(new THREE.AmbientLight(0xffffff,.85));
+const key=new THREE.DirectionalLight(0xffffff,1.4); key.position.set(3,5,4); scene.add(key);
+const rim=new THREE.DirectionalLight(0xff2e7e,1.1); rim.position.set(-4,2,-3); scene.add(rim);
+const ground=new THREE.Mesh(new THREE.CircleGeometry(3.4,48), new THREE.MeshStandardMaterial({color:0x2c1548, roughness:1}));
+ground.rotation.x=-Math.PI/2; ground.position.y=-1.55; scene.add(ground);
+
+const poleMat=new THREE.MeshStandardMaterial({color:SKINS[save.skin]?.pole??0xff5fa2, roughness:.35, metalness:.05, emissive:0xff2e7e, emissiveIntensity:.15});
+const ballMat=new THREE.MeshStandardMaterial({color:SKINS[save.skin]?.ball??0xff8fbe, roughness:.4, metalness:.05, emissive:0xff2e7e, emissiveIntensity:.1});
+const pole=new THREE.Mesh(new THREE.CapsuleGeometry(.62,2.4,12,24), poleMat); pole.position.y=.75; scene.add(pole);
+const ballL=new THREE.Mesh(new THREE.SphereGeometry(.62,28,22), ballMat); ballL.position.set(-.62,-1.05,0); scene.add(ballL);
+const ballR=ballL.clone(); ballR.position.x=.62; scene.add(ballR);
+const baseL=ballL.position.y, basePoleY=pole.position.y;
+// sweat particles
+const pCount=90, pGeo=new THREE.BufferGeometry(), pPos=new Float32Array(pCount*3), pVel=[];
+for(let i=0;i<pCount;i++){pPos[i*3]=0;pPos[i*3+1]=-99;pPos[i*3+2]=0;pVel.push(new THREE.Vector3());}
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos,3));
+const drops=new THREE.Points(pGeo,new THREE.PointsMaterial({color:0x7dffff,size:.09,transparent:true,opacity:.9}));
+scene.add(drops);
+function sweat(n,power){let c=0;for(let i=0;i<pCount&&c<n;i++){if(pPos[i*3+1]<-10){pPos[i*3]=(Math.random()-.5)*1.4;pPos[i*3+1]=1.5+Math.random();pPos[i*3+2]=(Math.random()-.5);pVel[i].set((Math.random()-.5)*power,1+Math.random()*power,(Math.random()-.5)*power);c++;}}}
+
+function resize(){const r=stage.getBoundingClientRect();renderer.setSize(r.width,r.height,false);cam.aspect=r.width/r.height;cam.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(stage); resize();
+
+/* ============ INPUT / STROKE DETECTION ============ */
+const ray=new THREE.Raycaster(), ptr=new THREE.Vector2();
+let lastPY=null,lastPX=null,lastPT=0,lastHitY=null,lastDirT=0;
+const ring=document.getElementById('stroke-ring');
+
+function castPole(cx,cy){
+  const r=canvas.getBoundingClientRect();
+  ptr.x=((cx-r.left)/r.width)*2-1; ptr.y=-((cy-r.top)/r.height)*2+1;
+  ray.setFromCamera(ptr,cam);
+  const hit=ray.intersectObject(pole,false)[0];
+  return hit||null;
+}
+stage.addEventListener('pointermove',e=>{
+  S.mouseX=e.clientX; S.mouseY=e.clientY;
+  ring.style.display='block'; ring.style.left=e.clientX-stage.getBoundingClientRect().left+'px'; ring.style.top=e.clientY-stage.getBoundingClientRect().top+'px';
+  const now=performance.now();
+  const hit=castPole(e.clientX,e.clientY);
+  S.overPole=!!hit;
+  ring.style.borderColor=hit?'#7dff6a':'#fff';
+  ring.style.boxShadow=hit?'0 0 22px #7dff6a':'0 0 18px var(--pink)';
+  if(hit&&lastPY!==null&&S.alive){
+    const dt=Math.max(16,now-lastPT)/1000;
+    const dyPx=e.clientY-lastPY, dxPx=e.clientX-lastPX;
+    const pixSpeed=Math.hypot(dxPx,dyPx)/dt;              // px/s
+    const hitDy=lastHitY!==null?Math.abs(hit.point.y-lastHitY)/dt:0; // world/s
+    const vY=dyPx/dt;
+    const targetNorm=Math.min(2.6,(pixSpeed/650)*.7+(hitDy/2.2)*.9);
+    S.speedNorm += (targetNorm-S.speedNorm)*Math.min(1,dt*10);
+    S.strokeDist+=Math.abs(dyPx);
+    // rhythm: direction flips of vertical motion
+    const dir=Math.sign(dyPx);
+    if(dir!==0&&Math.abs(dyPx)>4){
+      if(S.lastDir!==0&&dir!==S.lastDir){
+        const gap=now-lastDirT;
+        if(gap>120&&gap<700){ S.combo=Math.min(12,S.combo+1); S.lastFlip=now; }
+        else if(gap>=700){ S.combo=Math.max(0,S.combo-2); }
+        lastDirT=now;
+      }
+      S.lastDir=dir;
+    }
+    if(pixSpeed>900) sweat(2,2.2);
+  }
+  lastPY=e.clientY; lastPX=e.clientX; lastPT=now;
+  if(hit) lastHitY=hit.point.y;
+});
+stage.addEventListener('pointerdown',e=>{S.pressing=true; initAudio();});
+addEventListener('pointerup',()=>S.pressing=false);
+stage.addEventListener('pointerleave',()=>{S.overPole=false;ring.style.display='none';lastPY=null;});
+window.addEventListener('keydown',e=>{
+  if(e.key==='1') fireAbility('shower');
+  if(e.key==='2') fireAbility('ice');
+  if(e.key==='3') fireAbility('breath');
+  if(e.key===' '){S.pressing=true; e.preventDefault();}
+});
+window.addEventListener('keyup',e=>{if(e.key===' ')S.pressing=false;});
+
+/* ============ AUDIO (tiny) ============ */
+let AC=null,osc=null,oscG=null,muted=false;
+function initAudio(){ if(AC||muted) return; try{AC=new (window.AudioContext||window.webkitAudioContext)();osc=AC.createOscillator();oscG=AC.createGain();oscG.gain.value=0;osc.type='sawtooth';osc.connect(oscG).connect(AC.destination);osc.start();}catch(e){} }
+document.getElementById('mute').onclick=e=>{muted=!muted;e.target.textContent=muted?'🔇':'🔊'; if(oscG)oscG.gain.value=0; if(muted&&AC)AC.suspend(); else if(AC)AC.resume();};
+
+/* ============ SHOP ============ */
+const list=document.getElementById('shop-list');
+let tab='all';
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');tab=b.dataset.tab;renderShop();});
+const cost=(base,g,l)=>Math.floor(base*Math.pow(g,l));
+function gainMult(){return Math.max(.3,1-save.up.lube*.07);}
+function decayRate(){let d=7+save.up.grip*1.3; if(Date.now()<S.buff.breathUntil)d*=3; return d;}
+function juiceMult(){return (1+save.prestige*.15)*(1+save.up.edge*.25);}
+function defs(){
+  return [
+   {id:'lube',cat:'control',name:'🧴 Lube Job',desc:'Slower tension gain (-7%/lvl). More edge room.',base:100,g:1.7,lvl:save.up.lube,max:10},
+   {id:'grip',cat:'control',name:'✊ Steady Grip',desc:'Faster cooldown + smoother response (+1.3 decay/lvl).',base:120,g:1.7,lvl:save.up.grip,max:10},
+   {id:'shower',cat:'control',name:'🧊 Cold Shower (Ability 1)',desc:'Unlock/upgrade: instantly drops 30% (+4%/lvl).',base:300,g:2,lvl:save.up.shower,max:5,ab:'shower'},
+   {id:'ice',cat:'control',name:'❄️ Ice Grip (Ability 2)',desc:'Unlock/upgrade: freeze tension gain 5s (+1s/lvl).',base:800,g:2.1,lvl:save.up.ice,max:5,ab:'ice'},
+   {id:'breath',cat:'control',name:'🌬️ Deep Breath (Ability 3)',desc:'Unlock/upgrade: 3x cooldown 8s (+1.5s/lvl).',base:600,g:2,lvl:save.up.breath,max:5,ab:'breath'},
+   {id:'dbl',cat:'tech',name:'⚡ Double Stroke',desc:'Fast strokes (>1.5 speed) deal +25%/lvl bonus tension... but +40% Juice flow.',base:400,g:1.9,lvl:save.up.dbl,max:5},
+   {id:'twist',cat:'tech',name:'🌀 Twist Technique',desc:'Circular/side motion counts toward speed (+20% gain/lvl).',base:350,g:1.9,lvl:save.up.twist,max:5},
+   {id:'edge',cat:'tech',name:'😤 Edge Master',desc:'+25% Juice per lvl, double bonus above 90%. Pure Cookie-clicker greed.',base:500,g:2,lvl:save.up.edge,max:8},
+   ...Object.entries(SKINS).map(([id,s])=>({id:'skin:'+id,cat:'skin',name:'🎨 '+s.name,desc:id==='classic'?'Default cartoon look.':'Cosmetic skin for the Dih.',base:s.cost,g:1,lvl:save.skin===id?1:0,max:1,skin:id})),
+  ];
+}
+function renderShop(){
+  list.innerHTML='';
+  defs().filter(d=>tab==='all'||d.cat===tab).forEach(d=>{
+    if(d.skin&&d.base===0&&d.lvl===1) return;
+    const el=document.createElement('div'); el.className='card';
+    const c=d.skin?d.base:cost(d.base,d.g,d.lvl);
+    const maxed=d.lvl>=d.max;
+    el.innerHTML=`<h3>${d.name}</h3><p>${d.desc}</p><div class="row"><span class="lvl">${d.skin?(d.lvl?'EQUIPPED':''):'Lv '+d.lvl+'/'+d.max}</span><button ${maxed||save.juice<c?'disabled':''}>${maxed?(d.skin?'—':'MAX'):'Buy 🧃'+c}</button></div>`;
+    el.querySelector('button').onclick=()=>{
+      if(d.skin){ if(save.juice>=d.base){save.juice-=d.base; save.skin=d.skin; applySkin(); persist(); renderShop();} return; }
+      const cc=cost(d.base,d.g,d.lvl);
+      if(save.juice>=cc&&d.lvl<d.max){save.juice-=cc; save.up[d.id]++; persist(); renderShop();}
+    };
+    list.appendChild(el);
+  });
+  const p=document.createElement('div'); p.className='card'; p.style.borderColor='gold';
+  const pcost=5000*(save.prestige+1);
+  p.innerHTML=`<h3>💎 PRESTIGE (perm +15% Juice, slower gain)</h3><p>Requires 🧃${pcost} banked. Resets Juice + upgrade lvls (keeps skins). Lifetime: ${Math.floor(save.lifetime)}</p><div class="row"><span class="lvl">Prestige ${save.prestige}</span><button ${save.juice<pcost?'disabled':''}>PRESTIGE</button></div>`;
+  p.querySelector('button').onclick=doPrestige;
+  list.appendChild(p);
+}
+function doPrestige(){
+  const pcost=5000*(save.prestige+1);
+  if(save.juice<pcost) return;
+  save.prestige++; save.juice=0; save.up={lube:0,grip:0,shower:0,ice:0,breath:0,dbl:0,twist:0,edge:0};
+  persist(); renderShop(); updateHUD();
+}
+function applySkin(){const s=SKINS[save.skin]||SKINS.classic; poleMat.color.setHex(s.pole); ballMat.color.setHex(s.ball);}
+document.getElementById('btn-prestige2').onclick=()=>{doPrestige();};
+
+/* ============ ABILITIES ============ */
+function fireAbility(k){
+  if(!S.alive) return;
+  const now=performance.now()/1000;
+  if(k==='shower'&&save.up.shower>0&&S.cd.shower<=now){S.tension=Math.max(0,S.tension-(30+save.up.shower*4));S.cd.shower=now+Math.max(18,45-save.up.shower*3);flash('#7dffff');}
+  if(k==='ice'&&save.up.ice>0&&S.cd.ice<=now){S.buff.iceUntil=Date.now()+(5000+save.up.ice*1000);S.cd.ice=now+70;flash('#bdf1ff');}
+  if(k==='breath'&&save.up.breath>0&&S.cd.breath<=now){S.buff.breathUntil=Date.now()+(8000+save.up.breath*1500);S.cd.breath=now+60;flash('#aaffaa');}
+}
+document.getElementById('ab1').onclick=()=>fireAbility('shower');
+document.getElementById('ab2').onclick=()=>fireAbility('ice');
+document.getElementById('ab3').onclick=()=>fireAbility('breath');
+function flash(c){const f=document.getElementById('flash');f.style.background=c;f.style.opacity=.5;setTimeout(()=>f.style.opacity=0,120);}
+function updateAbBtns(){
+  const now=performance.now()/1000;
+  const map=[['ab1','shower',save.up.shower],['ab2','ice',save.up.ice],['ab3','breath',save.up.breath]];
+  map.forEach(([id,k,lvl])=>{
+    const b=document.getElementById(id);
+    const cd=Math.max(0,(S.cd[k]||0)-now);
+    b.querySelector('span').textContent=lvl===0?'LOCKED (shop)':(cd>0?Math.ceil(cd)+'s':'READY');
+    b.classList.toggle('cool',cd>0||lvl===0);
+  });
+}
+
+/* ============ FLOW ============ */
+document.getElementById('btn-start').onclick=()=>{document.getElementById('start-overlay').classList.add('hidden');startRun();};
+document.getElementById('btn-again').onclick=()=>{document.getElementById('over-overlay').classList.add('hidden');startRun();};
+document.getElementById('btn-reset-save').onclick=()=>{localStorage.removeItem(SAVE_KEY);location.reload();};
+function startRun(){S.tension=12;S.runTime=0;S.juiceRun=0;S.score=0;S.alive=true;S.started=true;S.maxT=0;S.strokeDist=0;S.combo=0;S.cd={shower:0,ice:0,breath:0};}
+function overload(){
+  S.alive=false;
+  const sc=Math.floor(S.runTime*10+S.juiceRun);
+  S.score=sc;
+  if(sc>save.best)save.best=sc;
+  save.juice+=Math.floor(S.juiceRun); save.lifetime+=S.juiceRun; persist();
+  // animation
+  let n=0; const f=document.getElementById('flash');
+  const iv=setInterval(()=>{f.style.background=n%2?'#ff0044':'#fff';f.style.opacity=.8;cam.position.x=(Math.random()-.5)*1.4;setTimeout(()=>f.style.opacity=0,60);if(++n>10){clearInterval(iv);cam.position.x=0;showOver(sc);}},110);
+  if(AC){try{const o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.setValueAtTime(600,AC.currentTime);o.frequency.exponentialRampToValueAtTime(60,AC.currentTime+.9);g.gain.setValueAtTime(.25,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+1);o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+1);}catch(e){}}
+}
+function showOver(sc){
+  const el=document.getElementById('overload-stats');
+  el.innerHTML=`<div>⏱️ Survived<br><b>${S.runTime.toFixed(1)}s</b></div><div>🧃 Juice earned<br><b>${Math.floor(S.juiceRun)}</b></div><div>🔥 Peak tension<br><b>${S.maxT.toFixed(1)}%</b></div><div>⭐ Score<br><b>${sc}</b></div><div>🏆 Best<br><b>${save.best}</b></div><div>💎 Prestige<br><b>${save.prestige}</b></div>`;
+  document.getElementById('over-overlay').classList.remove('hidden');
+  renderShop(); updateHUD();
+}
+
+/* ============ HUD ============ */
+const $=id=>document.getElementById(id);
+function updateHUD(){
+  $('ui-juice').textContent=Math.floor(save.juice+S.juiceRun);
+  $('ui-score').textContent=Math.floor(S.runTime*10+S.juiceRun);
+  $('ui-time').textContent=S.runTime.toFixed(1)+'s';
+  $('ui-best').textContent=save.best;
+  $('ui-prestige').textContent=save.prestige;
+  $('tension-num').textContent=Math.floor(S.smoothT)+'%';
+  $('meter-fill').style.height=S.smoothT+'%';
+  const t=S.smoothT;
+  $('ui-zone').textContent=t<30?'CHILL':t<60?'WARMING':t<80?'SPICY 🥵':t<92?'EDGING 😬':'CRITICAL ☠️';
+  $('ui-zone').style.color=t<60?'#7dff6a':t<80?'#ffd23f':'#ff5252';
+  $('vignette').style.opacity=(t/100*.95).toFixed(2);
+  $('ui-rhythm').textContent='x'+S.rhythmMult.toFixed(2);
+  $('ui-speed').textContent=S.speedNorm.toFixed(2);
+}
+
+/* ============ MAIN LOOP ============ */
+applySkin(); renderShop(); updateHUD();
+const clock=new THREE.Clock();
+const cA=new THREE.Color(), cLight=new THREE.Color(0xff8fb8), cHot=new THREE.Color(0xd0002e);
+function tick(){
+  requestAnimationFrame(tick);
+  const dt=Math.min(.05,clock.getDelta()), t=clock.elapsedTime;
+  // rhythm decay
+  if(performance.now()-S.lastFlip>1200) S.combo=Math.max(0,S.combo-dt*3);
+  S.rhythmMult=1+Math.min(12,S.combo)*.07;
+  if(!S.overPole) S.speedNorm=Math.max(0,S.speedNorm-dt*4);
+  // tension physics
+  if(S.alive&&S.started){
+    S.runTime+=dt;
+    let gain=0;
+    if(S.overPole&&(S.speedNorm>.08)){
+      const pressure=S.pressing?1.7:1.0;
+      let tech=1;
+      if(save.up.dbl>0&&S.speedNorm>1.5)tech*=1+save.up.dbl*.05;
+      if(save.up.twist>0)tech*=1+save.up.twist*.04;
+      gain=S.speedNorm*14*pressure*S.rhythmMult*gainMult()*tech*(1+save.up.dbl*.08);
+      if(Date.now()<S.buff.iceUntil)gain=0;
+      S.tension+=gain*dt;
+    }
+    S.tension-=decayRate()*dt*(S.tension>85?1.25:1);
+    if(S.tension>85&&S.alive)S.tension+=(Math.random()-.42)*dt*6; // danger wobble
+    S.tension=Math.max(0,S.tension);
+    S.maxT=Math.max(S.maxT,S.tension);
+    // juice
+    let rate=0;
+    if(S.tension>10){const edge=S.tension>70?Math.pow((S.tension-70)/30,2)*5:0;rate=S.tension*.25*(1+edge);}
+    if(save.up.edge>0&&S.tension>90)rate*=1.5;
+    rate*=juiceMult();
+    if(save.up.dbl>0&&S.overPole&&S.speedNorm>1.5)rate*=1.4;
+    S.juiceRun+=rate*dt;
+    // smooth display (Steady Grip = smoother)
+    const sm=1-Math.exp(-dt*(6+save.up.grip*2));
+    S.smoothT+=(S.tension-S.smoothT)*sm;
+    if(S.tension>=100){S.tension=100;S.smoothT=100;updateHUD();overload();}
+    // audio pitch
+    if(AC&&osc&&!muted){osc.frequency.value=60+S.smoothT*3+(S.overPole?40:0);oscG.gain.value=S.alive?S.smoothT/100*.06:0;}
+  } else {
+    S.smoothT+=(0-S.smoothT)*dt*3;
+    if(AC&&oscG)oscG.gain.value=0;
+  }
+  // visuals throb/bounce/color
+  const tn=S.smoothT/100, pulse=Math.sin(t*(3+tn*14));
+  const throb=1+tn*.22+pulse*.045*tn;
+  pole.scale.set(throb,1+Math.sin(t*2)*.008*tn,throb);
+  pole.rotation.z=Math.sin(t*1.3)*.02*(1+tn*3)+(S.alive&&tn>.9?(Math.random()-.5)*.06:0);
+  ballL.position.y=baseL+Math.abs(Math.sin(t*(2+tn*9)))*.28*tn;
+  ballR.position.y=baseL+Math.abs(Math.cos(t*(2+tn*9)))*.28*tn;
+  const sq=1+tn*.18-pulse*.05*tn; ballL.scale.set(sq,1/Math.sqrt(sq),sq); ballR.scale.copy(ballL.scale);
+  cA.copy(cLight).lerp(cHot,tn); poleMat.color.copy(cA).lerp(new THREE.Color(SKINS[save.skin]?.pole??0xff5fa2),.35);
+  poleMat.emissiveIntensity=.12+tn*.75;
+  // particles
+  for(let i=0;i<pCount;i++){if(pPos[i*3+1]>-10){pVel[i].y-=9*dt;pPos[i*3]+=pVel[i].x*dt;pPos[i*3+1]+=pVel[i].y*dt;pPos[i*3+2]+=pVel[i].z*dt;if(pPos[i*3+1]<-1.6)pPos[i*3+1]=-99;}}
+  pGeo.attributes.position.needsUpdate=true;
+  if(S.alive&&tn>.92)cam.position.x=(Math.random()-.5)*.14; else if(S.alive)cam.position.x*=.9;
+  updateHUD(); updateAbBtns();
+  // cheap shop refresh of affordability every second
+  if(!tick.n||t-tick.n>1){tick.n=t;renderShop();}
+  renderer.render(scene,cam);
+}
+tick();
+</script>
+</body>
+</html>
